@@ -1,0 +1,75 @@
+import jenkins.model.Jenkins;
+
+def call(body) {
+
+	def config = [:]
+    body.resolveStrategy = Closure.DELEGATE_FIRST
+    body.delegate = config
+    body()
+
+	def automation = new com.automation.TestAutomation()
+	def postfailure = new com.automation.postFailure()
+	def postsuccess = new com.automation.postSuccess()
+	def always = new com.automation.Always()
+	def finalemailnotification = new com.automation.finalemailNotification()
+	
+	pipeline {
+		agent {label "${Agent}"}
+		tools 
+		{ 
+    	    maven 'Jenkins-Maven' 
+	        jdk 'Jenkins-Java' 
+	    }
+		stages{ 
+			stage ('Smoke'){
+				steps{
+					script{
+						automation.TestAutomationMethod(config,"${config.Smoke_src_path}")
+					}
+				}
+				post{
+					always{
+						script{ always.alwaysMethod("${config.Smoke_src_path}","Smoke",config)}
+					}
+				}
+			}
+			stage ('Regression'){
+				steps{
+					script{
+						automation.TestAutomationMethod(config,"${config.Regression_src_path}")
+					}
+				}
+				post{
+					always{
+						script{ always.alwaysMethod("${config.Regression_src_path}","Regression",config)}
+					}
+				}
+
+			}
+			stage ('Acceptance'){
+				steps{
+					script{
+						automation.TestAutomationMethod(config,"${config.Acceptance_src_path}")
+					}
+				}
+				post{
+					always{
+						script{ always.alwaysMethod("${config.Regression_src_path}","Acceptance",config)}
+					}
+				}
+			}
+			stage ('FinalReport'){
+				steps{
+					script{
+						println "------------------------------\nFinal Test Results\n------------------------------"
+					}
+				}
+				post{
+					always{
+						script {finalemailnotification.finalemailNotificationMethod(config) }
+					}
+				}
+			}
+		}
+	}
+}
